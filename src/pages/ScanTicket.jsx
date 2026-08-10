@@ -23,6 +23,8 @@ import {
   ChevronDown,
   Wallet,
   Lock,
+  FileText,
+  FileSpreadsheet,
 } from "lucide-react";
 
 import Header from "../components/Header";
@@ -31,6 +33,11 @@ import Footer from "../components/Footer";
 // Import Firebase SDK
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, getDocs, doc, updateDoc } from "firebase/firestore";
+
+// Import Library Ekspor PDF & Excel (Pastikan sudah di-install: npm install jspdf jspdf-autotable xlsx)
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 /* =========================================================================
     SCAN TIKET & LAPORAN PEMASUKAN — Petugas pintu masuk (Terintegrasi Firebase).
@@ -279,7 +286,6 @@ export default function ScanTicket() {
     setIsLoggedIn(true);
   };
 
-  // Ambil data murni dari Firestore berdasarkan key objekNama
   const fetchTicketsFromFirestore = async (obName) => {
     setLoadingList(true);
     try {
@@ -439,6 +445,72 @@ export default function ScanTicket() {
   });
 
   const totalPemasukan = filteredTickets.reduce((acc, curr) => acc + Number(curr.total || 0), 0);
+  const totalPengunjung = filteredTickets.reduce((acc, curr) => acc + Number(curr.jumlahOrang || 1), 0);
+
+  // FUNGSI EKSPOR PDF
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text(`Laporan Pemasukan & Pengunjung`, 14, 15);
+    doc.setFontSize(11);
+    doc.text(`Objek Wisata: ${currentPetugas?.objekNama}`, 14, 22);
+    doc.text(`Filter - Tanggal: ${filterTanggal}, Bulan: ${filterBulan}, Tahun: ${filterTahun}`, 14, 28);
+    doc.text(`Total Pengunjung: ${totalPengunjung} Orang | Total Pemasukan: ${RUPIAH(totalPemasukan)}`, 14, 34);
+
+    const tableColumn = ["No. Tiket / Kode", "Obyek Wisata", "Pengunjung", "Jml (Org)", "Waktu Scan", "Nominal"];
+    const tableRows = [];
+
+    filteredTickets.forEach((t) => {
+      const ticketData = [
+        t.kode,
+        t.objekNama || currentPetugas?.objekNama,
+        t.namaPemesan || "-",
+        t.jumlahOrang || 1,
+        t.usedAt ? new Date(t.usedAt).toLocaleString("id-ID") : "-",
+        RUPIAH(t.total || 0),
+      ];
+      tableRows.push(ticketData);
+    });
+
+    doc.autoTable({
+      head: [tableColumn],
+      body: tableRows,
+      startY: 40,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [14, 116, 144] },
+    });
+
+    doc.save(`Laporan_Tiket_${currentPetugas?.objekNama.replace(/\s+/g, "_")}.pdf`);
+  };
+
+  // FUNGSI EKSPOR EXCEL
+  const exportToExcel = () => {
+    const excelData = filteredTickets.map((t, index) => ({
+      No: index + 1,
+      "No. Tiket / Kode": t.kode,
+      "Objek Wisata": t.objekNama || currentPetugas?.objekNama,
+      "Nama Pemesan": t.namaPemesan || "-",
+      "Jumlah Orang": t.jumlahOrang || 1,
+      "Waktu Scan": t.usedAt ? new Date(t.usedAt).toLocaleString("id-ID") : "-",
+      "Total Nominal (Rp)": t.total || 0,
+    }));
+
+    // Tambahkan baris total
+    excelData.push({
+      No: "TOTAL",
+      "No. Tiket / Kode": "",
+      "Objek Wisata": "",
+      "Nama Pemesan": "",
+      "Jumlah Orang": totalPengunjung,
+      "Waktu Scan": "",
+      "Total Nominal (Rp)": totalPemasukan,
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Tiket");
+    XLSX.writeFile(workbook, `Laporan_Tiket_${currentPetugas?.objekNama.replace(/\s+/g, "_")}.xlsx`);
+  };
 
   const monthlyData = Array.from({ length: 12 }, (_, index) => {
     const monthNum = String(index + 1).padStart(2, "0");
@@ -732,7 +804,7 @@ export default function ScanTicket() {
           </div>
         </div>
 
-        {/* SECTION: TABEL LAPORAN PEMASUKAN TIKET & FILTER DROPDOWN */}
+        {/* SECTION: TABEL LAPORAN PEMASUKAN TIKET & FILTER DROPDOWN + TOMBOL EKSPOR */}
         <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -742,9 +814,16 @@ export default function ScanTicket() {
               <p className="text-xs text-slate-500">Rekapitulasi tiket masuk yang diambil langsung dari Firestore.</p>
             </div>
             
-            <div className="rounded-2xl bg-sky-50 px-4 py-2 border border-sky-100 text-right">
-              <span className="block text-[11px] font-semibold text-sky-600 uppercase">Total Pemasukan</span>
-              <span className="text-base font-bold text-sky-900">{RUPIAH(totalPemasukan)}</span>
+            {/* KOTAK INFO TOTAL PENGUNJUNG & PEMASUKAN SESUAI FILTER */}
+            <div className="flex gap-2">
+              <div className="rounded-2xl bg-indigo-50 px-4 py-2 border border-indigo-100 text-right">
+                <span className="block text-[11px] font-semibold text-indigo-600 uppercase">Total Pengunjung</span>
+                <span className="text-base font-bold text-indigo-900">{totalPengunjung} Orang</span>
+              </div>
+              <div className="rounded-2xl bg-sky-50 px-4 py-2 border border-sky-100 text-right">
+                <span className="block text-[11px] font-semibold text-sky-600 uppercase">Total Pemasukan</span>
+                <span className="text-base font-bold text-sky-900">{RUPIAH(totalPemasukan)}</span>
+              </div>
             </div>
           </div>
 
@@ -775,16 +854,36 @@ export default function ScanTicket() {
             </div>
           </div>
 
-          {(filterTanggal !== "semua" || filterBulan !== "semua" || filterTahun !== "semua") && (
-            <div className="mt-3 flex justify-end">
+          {/* TOMBOL RESET FILTER & TOMBOL EKSPOR PDF / EXCEL */}
+          <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div>
+              {(filterTanggal !== "semua" || filterBulan !== "semua" || filterTahun !== "semua") && (
+                <button
+                  onClick={() => { setFilterTanggal("semua"); setFilterBulan("semua"); setFilterTahun("semua"); }}
+                  className="text-xs font-medium text-rose-600 hover:underline"
+                >
+                  Reset Filter
+                </button>
+              )}
+            </div>
+
+            <div className="flex gap-2 w-full sm:w-auto">
               <button
-                onClick={() => { setFilterTanggal("semua"); setFilterBulan("semua"); setFilterTahun("semua"); }}
-                className="text-xs font-medium text-rose-600 hover:underline"
+                onClick={exportToPDF}
+                disabled={filteredTickets.length === 0}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-semibold text-white shadow-md shadow-rose-600/20 transition active:scale-95 disabled:opacity-50"
               >
-                Reset Filter
+                <FileText className="h-4 w-4" /> Unduh PDF
+              </button>
+              <button
+                onClick={exportToExcel}
+                disabled={filteredTickets.length === 0}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white shadow-md shadow-emerald-600/20 transition active:scale-95 disabled:opacity-50"
+              >
+                <FileSpreadsheet className="h-4 w-4" /> Unduh Excel
               </button>
             </div>
-          )}
+          </div>
 
           <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-100">
             <table className="w-full text-left border-collapse text-xs sm:text-sm">
@@ -793,6 +892,7 @@ export default function ScanTicket() {
                   <th className="p-3 font-semibold">No. Tiket / Kode</th>
                   <th className="p-3 font-semibold">Obyek Wisata</th>
                   <th className="p-3 font-semibold">Pengunjung</th>
+                  <th className="p-3 font-semibold">Jumlah</th>
                   <th className="p-3 font-semibold">Waktu Scan</th>
                   <th className="p-3 font-semibold text-right">Nominal</th>
                 </tr>
@@ -800,14 +900,14 @@ export default function ScanTicket() {
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {loadingList ? (
                   <tr>
-                    <td colSpan={5} className="p-6 text-center text-slate-400">
+                    <td colSpan={6} className="p-6 text-center text-slate-400">
                       Memuat data dari database Firestore...
                     </td>
                   </tr>
                 ) : filteredTickets.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-6 text-center text-slate-400">
-                      Tidak ada data tiket untuk {currentPetugas?.objekNama}.
+                    <td colSpan={6} className="p-6 text-center text-slate-400">
+                      Tidak ada data tiket untuk filter yang dipilih pada {currentPetugas?.objekNama}.
                     </td>
                   </tr>
                 ) : (
@@ -815,7 +915,8 @@ export default function ScanTicket() {
                     <tr key={idx} className="hover:bg-slate-50/50 transition">
                       <td className="p-3 font-mono font-medium text-slate-900">{t.kode}</td>
                       <td className="p-3">{t.objekNama || currentPetugas?.objekNama}</td>
-                      <td className="p-3">{t.namaPemesan || "-"} ({t.jumlahOrang || 1} org)</td>
+                      <td className="p-3">{t.namaPemesan || "-"}</td>
+                      <td className="p-3 font-semibold text-indigo-600">{t.jumlahOrang || 1} org</td>
                       <td className="p-3 text-slate-500">
                         {t.usedAt ? new Date(t.usedAt).toLocaleString("id-ID") : "-"}
                       </td>
