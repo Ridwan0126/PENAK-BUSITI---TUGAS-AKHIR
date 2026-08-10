@@ -594,7 +594,7 @@ export default function ScanTicket() {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-white text-slate-900">
       <Header />
 
-      <main className="mx-auto max-w-4xl px-4 pb-16 pt-6">
+      <main className="mx-auto mt-28 max-w-4xl px-4 pb-16 pt-6">
         <div className="text-center">
           <div className="mx-auto inline-flex items-center gap-2 rounded-full bg-sky-500/10 px-3 py-1 text-xs font-semibold text-sky-600">
             <ShieldCheck className="h-3.5 w-3.5" /> Pengelola: {currentPetugas?.namaPetugas} ({currentPetugas?.objekNama})
