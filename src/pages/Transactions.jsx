@@ -306,31 +306,6 @@ export default function TransactionStatus() {
     }
   };
 
-  // Muat data dummy pertama secara otomatis (opsional, misalnya menampilkan data pertama)
-  useEffect(() => {
-    const defaultDummy = DUMMY_TBP_DEC_2025[0];
-    setSkrd(defaultDummy.no_penetapan);
-    setData({
-      no_tbp: defaultDummy.no_tbp,
-      tanggal: formatDate(defaultDummy.tanggal),
-      nama: defaultDummy.nama,
-      alamat: defaultDummy.alamat,
-      nik: defaultDummy.nik,
-      jumlah: defaultDummy.jumlah_bayar.toLocaleString("id-ID"),
-      terbilang: terbilang(defaultDummy.jumlah_bayar) + " Rupiah",
-      jenis_ret: defaultDummy.jenis_ret,
-      keterangan: defaultDummy.keterangan,
-      no_skrd: defaultDummy.no_penetapan,
-      obyek: defaultDummy.obyek,
-      lokasi: defaultDummy.lokasi,
-      nama_bendahara: defaultDummy.nama_bendahara,
-      nip: defaultDummy.nip,
-      uppd: defaultDummy.uppd,
-      opd: defaultDummy.opd,
-      alamatuppd: defaultDummy.alamatuppd,
-    });
-  }, []);
-
   useEffect(() => {
     let scanner = null;
     if (showScanner) {
