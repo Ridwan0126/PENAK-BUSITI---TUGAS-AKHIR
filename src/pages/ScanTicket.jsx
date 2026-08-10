@@ -21,6 +21,7 @@ import {
   Table,
   BarChart3,
   ChevronDown,
+  Wallet,
 } from "lucide-react";
 
 import Header from "../components/Header";
@@ -423,6 +424,7 @@ export default function ScanTicket() {
   });
 
   const maxChartValue = Math.max(...monthlyData.map((m) => m.total), 100000);
+  const totalChartPemasukan = monthlyData.reduce((acc, curr) => acc + curr.total, 0);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-white text-slate-900">
@@ -585,8 +587,21 @@ export default function ScanTicket() {
             </div>
           </div>
 
+          {/* INFORMASI NOMINAL DI ATAS BLOK DIAGRAM */}
+          <div className="mt-6 flex items-center justify-between rounded-2xl bg-slate-50 p-4 border border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10 text-sky-600">
+                <Wallet className="h-5 w-5" />
+              </div>
+              <div>
+                <span className="block text-xs font-medium text-slate-500">Total Pendapatan Tahun {chartFilterTahun}</span>
+                <span className="text-lg font-bold text-slate-900">{RUPIAH(totalChartPemasukan)}</span>
+              </div>
+            </div>
+          </div>
+
           {/* BAR CHART CONTAINER */}
-          <div className="mt-8 flex items-end justify-between gap-2 h-48 border-b border-slate-200 pb-2 px-2">
+          <div className="mt-6 flex items-end justify-between gap-2 h-48 border-b border-slate-200 pb-2 px-2">
             {monthlyData.map((item, idx) => {
               const heightPercent = Math.max((item.total / maxChartValue) * 100, 6);
               return (
