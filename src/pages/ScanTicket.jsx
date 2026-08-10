@@ -601,20 +601,26 @@ export default function ScanTicket() {
           </div>
 
           {/* BAR CHART CONTAINER */}
-          <div className="mt-6 flex items-end justify-between gap-2 h-48 border-b border-slate-200 pb-2 px-2">
+          <div className="mt-6 flex items-end justify-between gap-2 h-56 border-b border-slate-200 pb-2 px-2">
             {monthlyData.map((item, idx) => {
-              const heightPercent = Math.max((item.total / maxChartValue) * 100, 6);
+              const heightPercent = Math.max((item.total / maxChartValue) * 100, 8);
               return (
                 <div key={idx} className="flex flex-col items-center flex-1 h-full justify-end group relative">
-                  {/* Tooltip */}
-                  <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition bg-slate-900 text-white text-[10px] rounded px-2 py-1 pointer-events-none whitespace-nowrap z-20 shadow-md">
+                  {/* Keterangan Nominal di atas masing-masing blok */}
+                  <span className="mb-1 text-[9px] sm:text-[10px] font-semibold text-slate-600 truncate max-w-full">
+                    {item.total > 0 ? RUPIAH(item.total) : "0"}
+                  </span>
+                  
+                  {/* Tooltip tambahan */}
+                  <div className="absolute -top-12 opacity-0 group-hover:opacity-100 transition bg-slate-900 text-white text-[10px] rounded px-2 py-1 pointer-events-none whitespace-nowrap z-20 shadow-md">
                     {item.monthLabel}: {RUPIAH(item.total)}
                   </div>
+
                   <motion.div
                     initial={{ height: 0 }}
                     animate={{ height: `${heightPercent}%` }}
                     transition={{ duration: 0.5, delay: idx * 0.03 }}
-                    className="w-full max-w-[28px] rounded-t-lg bg-gradient-to-t from-sky-600 to-sky-400 group-hover:from-sky-700 group-hover:to-sky-500 transition"
+                    className="w-full max-w-[32px] rounded-t-lg bg-gradient-to-t from-sky-600 to-sky-400 group-hover:from-sky-700 group-hover:to-sky-500 transition"
                   />
                   <span className="mt-2 text-[10px] sm:text-xs font-medium text-slate-500 truncate">
                     {item.monthLabel}
