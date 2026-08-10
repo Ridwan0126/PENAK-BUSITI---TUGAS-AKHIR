@@ -19,6 +19,8 @@ import {
   ShieldCheck,
   Loader2,
   Table,
+  BarChart3,
+  ChevronDown,
 } from "lucide-react";
 
 import Header from "../components/Header";
@@ -47,6 +49,57 @@ const db = getFirestore(app);
 
 const RUPIAH = (n) =>
   "Rp" + Number(n).toLocaleString("id-ID", { maximumFractionDigits: 0 });
+
+/* Glass Select Custom Dropdown Komponen */
+const GlassSelect = ({ value, options, onChange }) => {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [value]);
+
+  const selectedLabel =
+    options.find((opt) =>
+      typeof opt === "object" ? opt.value === value : opt === value,
+    )?.label || value;
+
+  return (
+    <div className="relative w-full">
+      <div onClick={() => setOpen(!open)} className="glass-select">
+        <span className="truncate">{selectedLabel}</span>
+        <ChevronDown size={16} className="shrink-0 text-slate-500" />
+      </div>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+
+          <div className="glass-dropdown">
+            {options.map((opt, index) => {
+              const optValue = typeof opt === "object" ? opt.value : opt;
+              const optLabel = typeof opt === "object" ? opt.label : opt;
+
+              return (
+                <div
+                  key={index}
+                  onClick={() => {
+                    onChange(optValue);
+                    setOpen(false);
+                  }}
+                  className={`glass-option ${
+                    value === optValue ? "active" : ""
+                  }`}
+                >
+                  {optLabel}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 /* Validasi + update status tiket di Firebase berdasarkan kode */
 async function validateAndUseFirebase(kode) {
@@ -177,9 +230,14 @@ export default function ScanTicket() {
   // State untuk Data Laporan & Filter Pemasukan Tiket
   const [scannedTicketsList, setScannedTicketsList] = useState([]);
   const [loadingList, setLoadingList] = useState(false);
-  const [filterTanggal, setFilterTanggal] = useState("");
-  const [filterBulan, setFilterBulan] = useState("");
-  const [filterTahun, setFilterTahun] = useState("");
+  
+  // State Filter Dropdown
+  const [filterTanggal, setFilterTanggal] = useState("semua");
+  const [filterBulan, setFilterBulan] = useState("semua");
+  const [filterTahun, setFilterTahun] = useState("semua");
+
+  // State Filter untuk Diagram
+  const [chartFilterTahun, setChartFilterTahun] = useState(String(new Date().getFullYear()));
 
   useEffect(() => {
     setSupported("BarcodeDetector" in window);
@@ -187,7 +245,6 @@ export default function ScanTicket() {
     return () => stopCamera();
   }, []);
 
-  // Ambil semua tiket yang sudah digunakan/dipindai dari Firebase untuk tabel laporan
   const fetchAllScannedTickets = async () => {
     setLoadingList(true);
     try {
@@ -206,7 +263,6 @@ export default function ScanTicket() {
         }
       });
 
-      // Urutkan berdasarkan waktu pemindaian terbaru
       list.sort((a, b) => new Date(b.usedAt || 0) - new Date(a.usedAt || 0));
       setScannedTicketsList(list);
     } catch (error) {
@@ -235,7 +291,7 @@ export default function ScanTicket() {
     setResult(res);
     setValidating(false);
     stopCamera();
-    fetchAllScannedTickets(); // Refresh data tabel setelah scan berhasil
+    fetchAllScannedTickets();
   };
 
   const tick = async () => {
@@ -295,7 +351,39 @@ export default function ScanTicket() {
     lockRef.current = false;
   };
 
-  // Filter Data Berdasarkan Tanggal, Bulan, dan Tahun dari usedAt atau tanggalKunjungan
+  // Opsi Dropdown untuk Filter Laporan Tabel
+  const tanggalOptions = [
+    { value: "semua", label: "Semua Tanggal" },
+    ...Array.from({ length: 31 }, (_, i) => {
+      const d = String(i + 1).padStart(2, "0");
+      return { value: d, label: `Tanggal ${d}` };
+    }),
+  ];
+
+  const bulanOptions = [
+    { value: "semua", label: "Semua Bulan" },
+    { value: "01", label: "Januari" },
+    { value: "02", label: "Februari" },
+    { value: "03", label: "Maret" },
+    { value: "04", label: "April" },
+    { value: "05", label: "Mei" },
+    { value: "06", label: "Juni" },
+    { value: "07", label: "Juli" },
+    { value: "08", label: "Agustus" },
+    { value: "09", label: "September" },
+    { value: "10", label: "Oktober" },
+    { value: "11", label: "November" },
+    { value: "12", label: "Desember" },
+  ];
+
+  const tahunOptions = [
+    { value: "semua", label: "Semua Tahun" },
+    { value: "2024", label: "2024" },
+    { value: "2025", label: "2025" },
+    { value: "2026", label: "2026" },
+  ];
+
+  // Filter Data Tabel Berdasarkan Pilihan Dropdown
   const filteredTickets = scannedTicketsList.filter((item) => {
     const targetDateStr = item.usedAt || item.tanggalKunjungan || "";
     if (!targetDateStr) return false;
@@ -305,15 +393,36 @@ export default function ScanTicket() {
     const itemBulan = String(dateObj.getMonth() + 1).padStart(2, "0");
     const itemTanggal = String(dateObj.getDate()).padStart(2, "0");
 
-    if (filterTahun && itemTahun !== filterTahun) return false;
-    if (filterBulan && itemBulan !== filterBulan) return false;
-    if (filterTanggal && itemTanggal !== filterTanggal) return false;
+    if (filterTahun !== "semua" && itemTahun !== filterTahun) return false;
+    if (filterBulan !== "semua" && itemBulan !== filterBulan) return false;
+    if (filterTanggal !== "semua" && itemTanggal !== filterTanggal) return false;
 
     return true;
   });
 
-  // Hitung total pemasukan dari tiket yang sudah disaring
   const totalPemasukan = filteredTickets.reduce((acc, curr) => acc + Number(curr.total || 0), 0);
+
+  // Kalkulasi Diagram Penghasilan per Bulan berdasarkan Tahun yang dipilih di Diagram
+  const monthlyData = Array.from({ length: 12 }, (_, index) => {
+    const monthNum = String(index + 1).padStart(2, "0");
+    const totalForMonth = scannedTicketsList
+      .filter((t) => {
+        const dateStr = t.usedAt || t.tanggalKunjungan || "";
+        if (!dateStr) return false;
+        const d = new Date(dateStr);
+        const tYear = String(d.getFullYear());
+        const tMonth = String(d.getMonth() + 1).padStart(2, "0");
+        return tYear === chartFilterTahun && tMonth === monthNum;
+      })
+      .reduce((sum, curr) => sum + Number(curr.total || 0), 0);
+
+    return {
+      monthLabel: bulanOptions.find((b) => b.value === monthNum)?.label.slice(0, 3) || "",
+      total: totalForMonth,
+    };
+  });
+
+  const maxChartValue = Math.max(...monthlyData.map((m) => m.total), 100000);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-white text-slate-900">
@@ -453,8 +562,59 @@ export default function ScanTicket() {
           </AnimatePresence>
         </div>
 
-        {/* SECTION: TABEL LAPORAN PEMASUKAN TIKET */}
+        {/* SECTION: DIAGRAM / GRAFIK PENGHASILAN */}
         <div className="mt-12 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-sky-500" /> Grafik Penghasilan Per Bulan
+              </h2>
+              <p className="text-xs text-slate-500">Visualisasi tren pendapatan tiket masuk berdasarkan tahun.</p>
+            </div>
+
+            <div className="w-44">
+              <GlassSelect
+                value={chartFilterTahun}
+                options={[
+                  { value: "2024", label: "Tahun 2024" },
+                  { value: "2025", label: "Tahun 2025" },
+                  { value: "2026", label: "Tahun 2026" },
+                ]}
+                onChange={setChartFilterTahun}
+              />
+            </div>
+          </div>
+
+          {/* BAR CHART CONTAINER */}
+          <div className="mt-8 flex items-end justify-between gap-2 h-48 border-b border-slate-200 pb-2 px-2">
+            {monthlyData.map((item, idx) => {
+              const heightPercent = Math.max((item.total / maxChartValue) * 100, 6);
+              return (
+                <div key={idx} className="flex flex-col items-center flex-1 h-full justify-end group relative">
+                  {/* Tooltip */}
+                  <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition bg-slate-900 text-white text-[10px] rounded px-2 py-1 pointer-events-none whitespace-nowrap z-20 shadow-md">
+                    {item.monthLabel}: {RUPIAH(item.total)}
+                  </div>
+                  <motion.div
+                    initial={{ height: 0 }}
+                    animate={{ height: `${heightPercent}%` }}
+                    transition={{ duration: 0.5, delay: idx * 0.03 }}
+                    className="w-full max-w-[28px] rounded-t-lg bg-gradient-to-t from-sky-600 to-sky-400 group-hover:from-sky-700 group-hover:to-sky-500 transition"
+                  />
+                  <span className="mt-2 text-[10px] sm:text-xs font-medium text-slate-500 truncate">
+                    {item.monthLabel}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-2 text-center text-xs text-slate-400">
+            Bulan (Jan - Des {chartFilterTahun})
+          </div>
+        </div>
+
+        {/* SECTION: TABEL LAPORAN PEMASUKAN TIKET & FILTER DROPDOWN */}
+        <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -469,48 +629,39 @@ export default function ScanTicket() {
             </div>
           </div>
 
-          {/* FILTER TANGGAL, BULAN, TAHUN */}
-          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {/* FILTER DROPDOWN TANGGAL, BULAN, TAHUN */}
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Filter Tanggal (01-31)</label>
-              <input
-                type="text"
-                placeholder="Cth: 05"
-                maxLength={2}
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">Filter Tanggal</label>
+              <GlassSelect
                 value={filterTanggal}
-                onChange={(e) => setFilterTanggal(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-400"
+                options={tanggalOptions}
+                onChange={setFilterTanggal}
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Filter Bulan (01-12)</label>
-              <input
-                type="text"
-                placeholder="Cth: 12"
-                maxLength={2}
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">Filter Bulan</label>
+              <GlassSelect
                 value={filterBulan}
-                onChange={(e) => setFilterBulan(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-400"
+                options={bulanOptions}
+                onChange={setFilterBulan}
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Filter Tahun</label>
-              <input
-                type="text"
-                placeholder="Cth: 2025"
-                maxLength={4}
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">Filter Tahun</label>
+              <GlassSelect
                 value={filterTahun}
-                onChange={(e) => setFilterTahun(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-400"
+                options={tahunOptions}
+                onChange={setFilterTahun}
               />
             </div>
           </div>
 
           {/* RESET FILTER BUTTON */}
-          {(filterTanggal || filterBulan || filterTahun) && (
+          {(filterTanggal !== "semua" || filterBulan !== "semua" || filterTahun !== "semua") && (
             <div className="mt-3 flex justify-end">
               <button
-                onClick={() => { setFilterTanggal(""); setFilterBulan(""); setFilterTahun(""); }}
+                onClick={() => { setFilterTanggal("semua"); setFilterBulan("semua"); setFilterTahun("semua"); }}
                 className="text-xs font-medium text-rose-600 hover:underline"
               >
                 Reset Filter
@@ -570,6 +721,57 @@ export default function ScanTicket() {
       </main>
 
       <Footer />
+
+      {/* Style Tambahan untuk GlassSelect */}
+      <style jsx>{`
+        .glass-select {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 10px 14px;
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.9);
+          border: 1px solid rgba(209, 213, 219, 0.7);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+          cursor: pointer;
+          transition: all 0.2s ease;
+          color: #111;
+          font-size: 14px;
+          width: 100%;
+        }
+        .glass-select:hover {
+          background: #ffffff;
+          border-color: rgba(56, 189, 248, 0.6);
+        }
+        .glass-dropdown {
+          position: absolute;
+          top: 110%;
+          left: 0;
+          right: 0;
+          margin-top: 6px;
+          border-radius: 12px;
+          background: #ffffff;
+          border: 1px solid rgba(209, 213, 219, 0.8);
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+          z-index: 50;
+          max-height: 220px;
+          overflow-y: auto;
+        }
+        .glass-option {
+          padding: 10px 14px;
+          cursor: pointer;
+          transition: 0.15s;
+          color: #111;
+          font-size: 14px;
+        }
+        .glass-option:hover {
+          background: rgba(59, 130, 246, 0.1);
+        }
+        .glass-option.active {
+          background: rgba(59, 130, 246, 0.2);
+          font-weight: 600;
+        }
+      `}</style>
     </div>
   );
 }
