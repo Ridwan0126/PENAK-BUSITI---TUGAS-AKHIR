@@ -824,7 +824,7 @@ export default function SPTRD() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {obyekList.map((item, index) => {
                   const photos = getAllPhotos(item);
-                  const mainPhoto = photos[0] || "/images/logopepakraja.png";
+                  const mainPhoto = photos[0] || "/images/footer.svg";
                   return (
                     <motion.div
                       key={`${item.id}-${index}`}
@@ -1000,7 +1000,7 @@ export default function SPTRD() {
         {/* DETAIL MODAL OBYEK */}
         {showDetailModal && selectedObyek && (() => {
           const images = getAllPhotos(selectedObyek);
-          const finalImages = images.length > 0 ? images : ["/images/logopepakraja.png"];
+          const finalImages = images.length > 0 ? images : ["/images/footer.svg"];
           
           let lat = null;
           let lng = null;
