@@ -17,81 +17,139 @@ import {
   CalendarDays,
   Ticket as TicketIcon,
   ShieldCheck,
+  Loader2,
 } from "lucide-react";
 
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 
+// Import Firebase SDK
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, getDocs, doc, updateDoc } from "firebase/firestore";
+
 /* =========================================================================
-   SCAN TIKET — Petugas pintu masuk.
-   Memindai QR e-tiket (kamera native BarcodeDetector) ATAU input kode manual.
-   - Tiket valid & belum dipakai  -> ditandai TERPAKAI (used = true).
-   - Tiket sudah dipakai          -> ditolak.
-   - Tiket kedaluwarsa            -> hangus / ditolak.
+   SCAN TIKET — Petugas pintu masuk (Terintegrasi Firebase Firestore).
    ========================================================================= */
 
-const STORAGE_KEY = "jateng_tickets";
+const firebaseConfig = {
+  apiKey: "AIzaSyCRtgEJgJef3PNkPxPxbilsFRsv7Ldrv5Q",
+  authDomain: "retribusi-bapenda.firebaseapp.com",
+  projectId: "retribusi-bapenda",
+  storageBucket: "retribusi-bapenda.firebasestorage.app",
+  messagingSenderId: "479725161202",
+  appId: "1:479725161202:web:3980d3054259bd5a235e6b",
+  measurementId: "G-TJL81KLS2Q"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
 const RUPIAH = (n) =>
   "Rp" + Number(n).toLocaleString("id-ID", { maximumFractionDigits: 0 });
 
-function loadTickets() {
+/* Validasi + update status tiket di Firebase berdasarkan kode */
+async function validateAndUseFirebase(kode) {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-  } catch {
-    return [];
-  }
-}
-function saveTickets(list) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-}
+    const usersRef = collection(db, "users");
+    const querySnapshot = await getDocs(usersRef);
 
-/* Validasi + update status berdasarkan kode tiket */
-function validateAndUse(kode) {
-  const list = loadTickets();
-  const idx = list.findIndex((t) => t.kode === kode);
+    let targetUserDocId = null;
+    let targetTicketIndex = -1;
+    let foundTicket = null;
 
-  if (idx === -1) {
+    // Cari tiket di dalam array history_tiket milik setiap user di Firestore
+    querySnapshot.forEach((userDoc) => {
+      const userData = userDoc.data();
+      if (userData.history_tiket && Array.isArray(userData.history_tiket)) {
+        const idx = userData.history_tiket.findIndex((t) => t.kode === kode);
+        if (idx !== -1) {
+          targetUserDocId = userDoc.id;
+          targetTicketIndex = idx;
+          foundTicket = userData.history_tiket[idx];
+        }
+      }
+    });
+
+    if (!targetUserDocId || !foundTicket) {
+      return {
+        status: "invalid",
+        message: "Tiket tidak ditemukan / tidak valid dalam database.",
+      };
+    }
+
+    const t = foundTicket;
+    const now = new Date();
+    const expiry = new Date(t.expiryDate || t.tanggalKunjungan + "T23:59:59");
+
+    if (t.used || t.status === "used") {
+      return {
+        status: "used",
+        message: "Tiket sudah pernah digunakan sebelumnya.",
+        ticket: t,
+      };
+    }
+
+    if (now > expiry) {
+      // Update status menjadi expired di Firebase
+      const updatedTickets = [...(await getUserTickets(targetUserDocId))];
+      updatedTickets[targetTicketIndex] = { ...t, status: "expired" };
+      await updateDoc(doc(db, "users", targetUserDocId), {
+        history_tiket: updatedTickets,
+      });
+
+      return {
+        status: "expired",
+        message: "Tiket sudah kedaluwarsa / hangus.",
+        ticket: updatedTickets[targetTicketIndex],
+      };
+    }
+
+    // Tiket valid -> tandai terpakai (used = true)
+    const userDocRef = doc(db, "users", targetUserDocId);
+    const userSnap = await getDocs(usersRef); // Ambil ulang data segar
+    
+    // Ambil data array terbaru dari user tersebut
+    let currentHistory = [];
+    querySnapshot.forEach((d) => {
+      if (d.id === targetUserDocId) {
+        currentHistory = d.data().history_tiket || [];
+      }
+    });
+
+    currentHistory[targetTicketIndex] = {
+      ...t,
+      used: true,
+      status: "used",
+      usedAt: new Date().toISOString(),
+    };
+
+    await updateDoc(userDocRef, {
+      history_tiket: currentHistory,
+    });
+
+    return {
+      status: "valid",
+      message: "Tiket valid. Selamat datang!",
+      ticket: currentHistory[targetTicketIndex],
+    };
+  } catch (error) {
+    console.error("Gagal memvalidasi tiket ke Firebase:", error);
     return {
       status: "invalid",
-      message: "Tiket tidak ditemukan / tidak valid.",
+      message: "Terjadi kesalahan koneksi database.",
     };
   }
+}
 
-  const t = list[idx];
-  const now = new Date();
-  const expiry = new Date(t.expiryDate || t.tanggalKunjungan + "T23:59:59");
-
-  if (t.used || t.status === "used") {
-    return {
-      status: "used",
-      message: "Tiket sudah pernah digunakan.",
-      ticket: t,
-    };
+async function getUserTickets(docId) {
+  const usersRef = collection(db, "users");
+  const snapshot = await getDocs(usersRef);
+  for (const d of snapshot.docs) {
+    if (d.id === docId) {
+      return d.data().history_tiket || [];
+    }
   }
-  if (now > expiry) {
-    list[idx] = { ...t, status: "expired" };
-    saveTickets(list);
-    return {
-      status: "expired",
-      message: "Tiket sudah kedaluwarsa / hangus.",
-      ticket: list[idx],
-    };
-  }
-
-  // valid -> tandai terpakai
-  list[idx] = {
-    ...t,
-    used: true,
-    status: "used",
-    usedAt: new Date().toISOString(),
-  };
-  saveTickets(list);
-  return {
-    status: "valid",
-    message: "Tiket valid. Selamat datang!",
-    ticket: list[idx],
-  };
+  return [];
 }
 
 /* Ekstrak kode dari hasil scan (bisa JSON penuh atau kode polos) */
@@ -99,12 +157,9 @@ function extractKode(raw) {
   if (!raw) return null;
   const text = String(raw).trim();
   try {
-    // Coba parse jika formatnya JSON
     const obj = JSON.parse(text);
     if (obj && obj.kode) return obj.kode;
   } catch {
-    // Jika bukan JSON, mungkin langsung kodenya
-    // Bersihkan jika ada karakter aneh
     return text.replace(/[^a-zA-Z0-9-]/g, "");
   }
   return text;
@@ -119,14 +174,14 @@ export default function ScanTicket() {
 
   const [scanning, setScanning] = useState(false);
   const [supported, setSupported] = useState(true);
-  const [result, setResult] = useState(null); // {status, message, ticket}
+  const [result, setResult] = useState(null);
   const [manual, setManual] = useState(false);
   const [code, setCode] = useState("");
+  const [validating, setValidating] = useState(false);
 
   useEffect(() => {
     setSupported("BarcodeDetector" in window);
     return () => stopCamera();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const stopCamera = () => {
@@ -138,12 +193,15 @@ export default function ScanTicket() {
     setScanning(false);
   };
 
-  const handleResult = (raw) => {
+  const handleResult = async (raw) => {
     const kode = extractKode(raw);
     if (!kode) return;
     lockRef.current = true;
-    const res = validateAndUse(kode);
+    setValidating(true);
+    
+    const res = await validateAndUseFirebase(kode);
     setResult(res);
+    setValidating(false);
     stopCamera();
   };
 
@@ -211,13 +269,13 @@ export default function ScanTicket() {
       <main className="mx-auto max-w-md px-4 pb-16 pt-6">
         <div className="text-center">
           <div className="mx-auto inline-flex items-center gap-2 rounded-full bg-sky-500/10 px-3 py-1 text-xs font-semibold text-sky-600">
-            <ShieldCheck className="h-3.5 w-3.5" /> Mode Petugas
+            <ShieldCheck className="h-3.5 w-3.5" /> Mode Petugas (Firebase)
           </div>
           <h1 className="mt-3 text-2xl font-bold tracking-tight">
             Pindai E-Tiket
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Arahkan kamera ke QR tiket pengunjung untuk validasi.
+            Arahkan kamera ke QR tiket pengunjung untuk validasi data database.
           </p>
         </div>
 
@@ -231,7 +289,6 @@ export default function ScanTicket() {
               className={`h-full w-full object-cover ${scanning ? "opacity-100" : "opacity-0"}`}
             />
 
-            {/* idle overlay */}
             {!scanning && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-center">
                 <ScanLine className="h-12 w-12 text-sky-400" />
@@ -242,7 +299,6 @@ export default function ScanTicket() {
               </div>
             )}
 
-            {/* scan reticle + animated line */}
             {scanning && (
               <>
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -266,6 +322,13 @@ export default function ScanTicket() {
                   Mendeteksi QR...
                 </div>
               </>
+            )}
+
+            {validating && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-sm">
+                <Loader2 className="h-10 w-10 animate-spin text-sky-400" />
+                <p className="mt-3 text-sm font-medium text-white">Memeriksa database...</p>
+              </div>
             )}
           </div>
         </div>
@@ -326,9 +389,10 @@ export default function ScanTicket() {
                   />
                   <button
                     type="submit"
-                    className="rounded-xl bg-sky-500 px-4 text-sm font-semibold text-white transition active:scale-95"
+                    disabled={validating}
+                    className="flex items-center justify-center rounded-xl bg-sky-500 px-4 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-50"
                   >
-                    Cek
+                    {validating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cek"}
                   </button>
                 </div>
               </div>
