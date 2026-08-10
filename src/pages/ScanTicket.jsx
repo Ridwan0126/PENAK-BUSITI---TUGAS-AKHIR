@@ -22,6 +22,7 @@ import {
   BarChart3,
   ChevronDown,
   Wallet,
+  Lock,
 } from "lucide-react";
 
 import Header from "../components/Header";
@@ -50,6 +51,46 @@ const db = getFirestore(app);
 
 const RUPIAH = (n) =>
   "Rp" + Number(n).toLocaleString("id-ID", { maximumFractionDigits: 0 });
+
+/* DUMMY DATA TIKET UNTUK PENGUJIAN PER OBYEK WISATA */
+const DUMMY_TIKET_DATA = [
+  {
+    kode: "BORO-2025-001",
+    objekNama: "Candi Borobudur",
+    objekId: "OBJ-001",
+    namaPemesan: "Budi Santoso",
+    jumlahOrang: 2,
+    tanggalKunjungan: "2025-12-05",
+    total: 100000,
+    used: true,
+    status: "used",
+    usedAt: "2025-12-05T09:30:00Z"
+  },
+  {
+    kode: "BORO-2025-002",
+    objekNama: "Candi Borobudur",
+    objekId: "OBJ-001",
+    namaPemesan: "Siti Aminah",
+    jumlahOrang: 4,
+    tanggalKunjungan: "2025-12-10",
+    total: 200000,
+    used: true,
+    status: "used",
+    usedAt: "2025-12-10T10:15:00Z"
+  },
+  {
+    kode: "PRAM-2025-001",
+    objekNama: "Candi Prambanan",
+    objekId: "OBJ-002",
+    namaPemesan: "Ahmad Fauzi",
+    jumlahOrang: 3,
+    tanggalKunjungan: "2025-12-12",
+    total: 150000,
+    used: true,
+    status: "used",
+    usedAt: "2025-12-12T11:00:00Z"
+  }
+];
 
 /* Glass Select Custom Dropdown Komponen */
 const GlassSelect = ({ value, options, onChange }) => {
@@ -124,7 +165,16 @@ async function validateAndUseFirebase(kode) {
       }
     });
 
+    // Jika tidak ada di firebase, cek ke dummy data lokal
     if (!targetUserDocId || !foundTicket) {
+      const dummyMatch = DUMMY_TIKET_DATA.find((t) => t.kode === kode);
+      if (dummyMatch) {
+        return {
+          status: "valid",
+          message: "Tiket valid (Dummy Data). Selamat datang!",
+          ticket: dummyMatch,
+        };
+      }
       return {
         status: "invalid",
         message: "Tiket tidak ditemukan / tidak valid dalam database.",
@@ -144,16 +194,10 @@ async function validateAndUseFirebase(kode) {
     }
 
     if (now > expiry) {
-      const updatedTickets = [...(await getUserTickets(targetUserDocId))];
-      updatedTickets[targetTicketIndex] = { ...t, status: "expired" };
-      await updateDoc(doc(db, "users", targetUserDocId), {
-        history_tiket: updatedTickets,
-      });
-
       return {
         status: "expired",
         message: "Tiket sudah kedaluwarsa / hangus.",
-        ticket: updatedTickets[targetTicketIndex],
+        ticket: t,
       };
     }
 
@@ -183,6 +227,15 @@ async function validateAndUseFirebase(kode) {
     };
   } catch (error) {
     console.error("Gagal memvalidasi tiket ke Firebase:", error);
+    // Fallback dummy
+    const dummyMatch = DUMMY_TIKET_DATA.find((t) => t.kode === kode);
+    if (dummyMatch) {
+      return {
+        status: "valid",
+        message: "Tiket valid (Dummy Data Mode Offline).",
+        ticket: dummyMatch,
+      };
+    }
     return {
       status: "invalid",
       message: "Terjadi kesalahan koneksi database.",
@@ -215,6 +268,12 @@ function extractKode(raw) {
 }
 
 export default function ScanTicket() {
+  // State Login Petugas
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [petugasUser, setPetugasUser] = useState("");
+  const [petugasPass, setPetugasPass] = useState("");
+  const [selectedObyekPetugas, setSelectedObyekPetugas] = useState("Candi Borobudur");
+
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const rafRef = useRef(null);
@@ -246,12 +305,22 @@ export default function ScanTicket() {
     return () => stopCamera();
   }, []);
 
+  const handleLoginPetugas = (e) => {
+    e.preventDefault();
+    if (!petugasUser.trim() || !petugasPass.trim()) {
+      alert("Masukkan username dan password petugas!");
+      return;
+    }
+    // Sederhana simulasi login berhasil dan menetapkan lokasi obyek
+    setIsLoggedIn(true);
+  };
+
   const fetchAllScannedTickets = async () => {
     setLoadingList(true);
     try {
       const usersRef = collection(db, "users");
       const querySnapshot = await getDocs(usersRef);
-      let list = [];
+      let list = [...DUMMY_TIKET_DATA]; // Masukkan juga dummy data awal
 
       querySnapshot.forEach((userDoc) => {
         const userData = userDoc.data();
@@ -268,6 +337,7 @@ export default function ScanTicket() {
       setScannedTicketsList(list);
     } catch (error) {
       console.error("Gagal memuat data laporan tiket:", error);
+      setScannedTicketsList(DUMMY_TIKET_DATA);
     } finally {
       setLoadingList(false);
     }
@@ -384,8 +454,13 @@ export default function ScanTicket() {
     { value: "2026", label: "2026" },
   ];
 
-  // Filter Data Tabel Berdasarkan Pilihan Dropdown
-  const filteredTickets = scannedTicketsList.filter((item) => {
+  // FILTER UTAMA: Hanya tampilkan data sesuai obyek wisata tempat petugas bertugas (contoh: Candi Borobudur)
+  const ticketsByObyek = scannedTicketsList.filter(
+    (item) => !item.objekNama || item.objekNama.toLowerCase() === selectedObyekPetugas.toLowerCase()
+  );
+
+  // Filter Data Tabel Berdasarkan Pilihan Dropdown Tambahan
+  const filteredTickets = ticketsByObyek.filter((item) => {
     const targetDateStr = item.usedAt || item.tanggalKunjungan || "";
     if (!targetDateStr) return false;
 
@@ -403,10 +478,10 @@ export default function ScanTicket() {
 
   const totalPemasukan = filteredTickets.reduce((acc, curr) => acc + Number(curr.total || 0), 0);
 
-  // Kalkulasi Diagram Penghasilan per Bulan berdasarkan Tahun yang dipilih di Diagram
+  // Kalkulasi Diagram Penghasilan per Bulan khusus untuk obyek wisata petugas
   const monthlyData = Array.from({ length: 12 }, (_, index) => {
     const monthNum = String(index + 1).padStart(2, "0");
-    const totalForMonth = scannedTicketsList
+    const totalForMonth = ticketsByObyek
       .filter((t) => {
         const dateStr = t.usedAt || t.tanggalKunjungan || "";
         if (!dateStr) return false;
@@ -426,6 +501,71 @@ export default function ScanTicket() {
   const maxChartValue = Math.max(...monthlyData.map((m) => m.total), 100000);
   const totalChartPemasukan = monthlyData.reduce((acc, curr) => acc + curr.total, 0);
 
+  // FORM LOGIN SEBELUM MASUK SCAN TIKET
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-white text-slate-900 flex flex-col justify-between">
+        <Header />
+        <main className="mx-auto max-w-md px-4 py-16 w-full">
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+            <div className="text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-sky-500/10 text-sky-600 mb-3">
+                <Lock className="h-6 w-6" />
+              </div>
+              <h1 className="text-xl font-bold tracking-tight">Login Petugas Pintu Masuk</h1>
+              <p className="mt-1 text-xs text-slate-500">Silakan login untuk mengakses scanner dan data rekapitulasi obyek wisata Anda.</p>
+            </div>
+
+            <form onSubmit={handleLoginPetugas} className="mt-6 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Username Petugas</label>
+                <input
+                  type="text"
+                  placeholder="Cth: petugas_borobudur"
+                  value={petugasUser}
+                  onChange={(e) => setPetugasUser(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-sky-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Password</label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={petugasPass}
+                  onChange={(e) => setPetugasPass(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-sky-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Pilih Penugasan Obyek Wisata</label>
+                <GlassSelect
+                  value={selectedObyekPetugas}
+                  options={[
+                    { value: "Candi Borobudur", label: "Candi Borobudur" },
+                    { value: "Candi Prambanan", label: "Candi Prambanan" },
+                    { value: "Kawasan Wisata Colo", label: "Kawasan Wisata Colo" }
+                  ]}
+                  onChange={setSelectedObyekPetugas}
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full mt-2 rounded-xl bg-sky-500 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 transition active:scale-[0.98]"
+              >
+                Masuk Sistem Petugas
+              </button>
+            </form>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-white text-slate-900">
       <Header />
@@ -433,14 +573,20 @@ export default function ScanTicket() {
       <main className="mx-auto max-w-4xl px-4 pb-16 pt-6">
         <div className="text-center">
           <div className="mx-auto inline-flex items-center gap-2 rounded-full bg-sky-500/10 px-3 py-1 text-xs font-semibold text-sky-600">
-            <ShieldCheck className="h-3.5 w-3.5" /> Mode Petugas (Firebase)
+            <ShieldCheck className="h-3.5 w-3.5" /> Bertugas di: {selectedObyekPetugas}
           </div>
           <h1 className="mt-3 text-2xl font-bold tracking-tight">
             Pindai E-Tiket & Laporan Pemasukan
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Arahkan kamera ke QR tiket pengunjung untuk validasi dan pantau rekapitulasi pemasukan secara real-time.
+            Arahkan kamera ke QR tiket pengunjung untuk validasi data khusus {selectedObyekPetugas}.
           </p>
+          <button
+            onClick={() => setIsLoggedIn(false)}
+            className="mt-2 text-xs font-medium text-rose-600 hover:underline"
+          >
+            Keluar Akun Petugas
+          </button>
         </div>
 
         {/* SCANNER FRAME */}
@@ -569,7 +715,7 @@ export default function ScanTicket() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-sky-500" /> Grafik Penghasilan Per Bulan
+                <BarChart3 className="h-5 w-5 text-sky-500" /> Grafik Penghasilan Per Bulan ({selectedObyekPetugas})
               </h2>
               <p className="text-xs text-slate-500">Visualisasi tren pendapatan tiket masuk berdasarkan tahun.</p>
             </div>
@@ -639,9 +785,9 @@ export default function ScanTicket() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <Table className="h-5 w-5 text-sky-500" /> Data Pemasukan Tiket Terpindai
+                <Table className="h-5 w-5 text-sky-500" /> Data Pemasukan Tiket ({selectedObyekPetugas})
               </h2>
-              <p className="text-xs text-slate-500">Rekapitulasi tiket masuk yang sukses divalidasi oleh petugas.</p>
+              <p className="text-xs text-slate-500">Rekapitulasi tiket masuk yang sukses divalidasi.</p>
             </div>
             
             <div className="rounded-2xl bg-sky-50 px-4 py-2 border border-sky-100 text-right">
@@ -712,14 +858,14 @@ export default function ScanTicket() {
                 ) : filteredTickets.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="p-6 text-center text-slate-400">
-                      Tidak ada data tiket yang cocok dengan filter.
+                      Tidak ada data tiket yang cocok untuk {selectedObyekPetugas}.
                     </td>
                   </tr>
                 ) : (
                   filteredTickets.map((t, idx) => (
                     <tr key={idx} className="hover:bg-slate-50/50 transition">
                       <td className="p-3 font-mono font-medium text-slate-900">{t.kode}</td>
-                      <td className="p-3">{t.objekNama || "-"}</td>
+                      <td className="p-3">{t.objekNama || selectedObyekPetugas}</td>
                       <td className="p-3">{t.namaPemesan || "-"} ({t.jumlahOrang || 1} org)</td>
                       <td className="p-3 text-slate-500">
                         {t.usedAt ? new Date(t.usedAt).toLocaleString("id-ID") : "-"}
@@ -911,7 +1057,7 @@ function ResultModal({ result, onClose }) {
               <Row
                 icon={<ShieldCheck className="h-4 w-4" />}
                 label="ID Obyek"
-                value={t.objekId}
+                value={t.objekId || "OBJ-001"}
               />
               <Row
                 icon={<User className="h-4 w-4" />}
