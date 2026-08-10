@@ -535,9 +535,9 @@ export default function ScanTicket() {
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-white text-slate-900 flex flex-col justify-between">
+      <div className="min-h-screen bg-gradient-to-b mt from-slate-50 via-white to-white text-slate-900 flex flex-col justify-between">
         <Header />
-        <main className="mx-auto max-w-md px-4 py-16 w-full">
+        <main className="mx-auto mt-16 max-w-md px-4 py-16 w-full">
           <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
             <div className="text-center">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-sky-500/10 text-sky-600 mb-3">
