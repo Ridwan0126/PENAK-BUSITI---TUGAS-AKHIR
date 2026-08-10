@@ -8,13 +8,71 @@ import { Html5QrcodeScanner } from "html5-qrcode";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
+/* ----------------------------- DUMMY DATA TBP DESEMBER 2025 ------------------------------ */
+const DUMMY_TBP_DEC_2025 = [
+  {
+    no_tbp: "TBP/2025/12/001",
+    tanggal: "2025-12-05",
+    nama: "Budi Santoso",
+    alamat: "Jl. Melati No. 5, Kudus",
+    nik: "3319012345670001",
+    jumlah_bayar: 250000,
+    jenis_ret: "Retribusi Jasa Usaha",
+    keterangan: "Retribusi Tempat Rekreasi & Olahraga",
+    no_penetapan: "SKRD/2025/12/001",
+    obyek: "Retribusi Tempat Rekreasi & Olahraga",
+    lokasi: "Jl. Pemuda No. 10, Kudus",
+    nama_bendahara: "Dra. Hj. Siti Rohmah, M.Si",
+    nip: "196805121992032008",
+    uppd: "UPPD Kabupaten Kudus",
+    opd: "BADAN PENGELOLA PENDAPATAN DAERAH",
+    alamatuppd: "Jl. Dr. Loekmono Hadi No. 1, Kudus"
+  },
+  {
+    no_tbp: "TBP/2025/12/002",
+    tanggal: "2025-12-10",
+    nama: "Siti Aminah",
+    alamat: "Jl. Ahmad Yani No. 12, Kudus",
+    nik: "3319012345670002",
+    jumlah_bayar: 150000,
+    jenis_ret: "Retribusi Jasa Umum",
+    keterangan: "Retribusi Parkir Kendaraan Khusus",
+    no_penetapan: "SKRD/2025/12/002",
+    obyek: "Retribusi Parkir Kendaraan Khusus",
+    lokasi: "Kawasan Wisata Colo, Kudus",
+    nama_bendahara: "Dra. Hj. Siti Rohmah, M.Si",
+    nip: "196805121992032008",
+    uppd: "UPPD Kabupaten Kudus",
+    opd: "BADAN PENGELOLA PENDAPATAN DAERAH",
+    alamatuppd: "Jl. Dr. Loekmono Hadi No. 1, Kudus"
+  },
+  {
+    no_tbp: "TBP/2025/12/003",
+    tanggal: "2025-12-12",
+    nama: "CV. Makmur Jaya",
+    alamat: "Jl. Diponegoro No. 45, Kudus",
+    nik: "3319012345670003",
+    jumlah_bayar: 500000,
+    jenis_ret: "Retribusi Perizinan Tertentu",
+    keterangan: "Penyediaan Fasilitas Umum Daerah",
+    no_penetapan: "SKRD/2025/12/003",
+    obyek: "Penyediaan Fasilitas Umum Daerah",
+    lokasi: "Jl. Lingkar Selatan, Kudus",
+    nama_bendahara: "Dra. Hj. Siti Rohmah, M.Si",
+    nip: "196805121992032008",
+    uppd: "UPPD Kabupaten Kudus",
+    opd: "BADAN PENGELOLA PENDAPATAN DAERAH",
+    alamatuppd: "Jl. Dr. Loekmono Hadi No. 1, Kudus"
+  }
+];
+
 export default function TransactionStatus() {
   const [skrd, setSkrd] = useState("");
   const [data, setData] = useState(null);
   const [showScanner, setShowScanner] = useState(false);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const componentRef = useRef();
-  // Di dalam komponen TransactionStatus
+  
   const [printInfo, setPrintInfo] = useState(null);
   const getPrintTimestamp = () => {
     const now = new Date();
@@ -27,34 +85,27 @@ export default function TransactionStatus() {
       second: "2-digit",
     });
   };
+
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
-    // Mengatur nama file: "tbp_NamaUser.pdf"
     documentTitle: data
       ? `tbp_${data.nama.replace(/\s+/g, "_")}-${data.no_tbp}`
       : "tbp_dokumen",
   });
+
   const handlePrintAction = () => {
     const session = JSON.parse(localStorage.getItem("wr_session"));
     setPrintInfo({
-      username: session?.user?.nama || "User", // Sesuaikan dengan key nama di session Anda
+      username: session?.user?.nama || "User",
       waktu: getPrintTimestamp(),
     });
 
-    // Berikan sedikit jeda agar state terupdate sebelum render print
     setTimeout(() => handlePrint(), 100);
   };
 
   // FUNGSI UNDUH PDF
   const handleDownloadPDF = async () => {
     const session = JSON.parse(localStorage.getItem("wr_session"));
-    const element = componentRef.current;
-    const canvas = await html2canvas(element, { scale: 2 });
-    const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF("p", "mm", "a4");
-
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
     setPrintInfo({
       username: session?.user?.nama || "User",
       waktu: getPrintTimestamp(),
@@ -135,10 +186,10 @@ export default function TransactionStatus() {
     const session = JSON.parse(localStorage.getItem("wr_session")) || {};
     const idWr = Number(session?.user?.id);
 
-    if (!idWr || !skrd) {
+    if (!skrd) {
       Swal.fire(
         "Peringatan",
-        "Pastikan sudah login dan nomor SKRD terisi",
+        "Pastikan nomor SKRD / Kode Bayar terisi",
         "warning",
       );
       setLoadingSearch(false);
@@ -147,7 +198,7 @@ export default function TransactionStatus() {
 
     try {
       const response = await fetch(
-        `/bapenda/pepakraja/tbp/detail?id_wr=${idWr}&no_penetapan=${encodeURIComponent(skrd.trim())}`,
+        `/bapenda/pepakraja/tbp/detail?id_wr=${idWr || 1}&no_penetapan=${encodeURIComponent(skrd.trim())}`,
         {
           headers: {
             token: "xV3nKd8QpL5rTyHuWc2MfZaJbE7sRt1",
@@ -157,44 +208,128 @@ export default function TransactionStatus() {
       );
 
       const result = await response.json();
-      if (result.code !== "00") {
-        Swal.fire("Gagal", "Data TBP tidak ditemukan di sistem", "error");
+      if (result.code !== "00" || !result.data) {
+        // Fallback cek ke data dummy jika pencarian nomor penetapan cocok
+        const foundDummy = DUMMY_TBP_DEC_2025.find(
+          (item) => item.no_penetapan.toLowerCase() === skrd.trim().toLowerCase() ||
+                    item.no_tbp.toLowerCase() === skrd.trim().toLowerCase()
+        );
+
+        if (foundDummy) {
+          setData({
+            no_tbp: foundDummy.no_tbp,
+            tanggal: formatDate(foundDummy.tanggal),
+            nama: foundDummy.nama,
+            alamat: foundDummy.alamat,
+            nik: foundDummy.nik,
+            jumlah: foundDummy.jumlah_bayar.toLocaleString("id-ID"),
+            terbilang: terbilang(foundDummy.jumlah_bayar) + " Rupiah",
+            jenis_ret: foundDummy.jenis_ret,
+            keterangan: foundDummy.keterangan,
+            no_skrd: foundDummy.no_penetapan,
+            obyek: foundDummy.obyek,
+            lokasi: foundDummy.lokasi,
+            nama_bendahara: foundDummy.nama_bendahara,
+            nip: foundDummy.nip,
+            uppd: foundDummy.uppd,
+            opd: foundDummy.opd,
+            alamatuppd: foundDummy.alamatuppd,
+          });
+          Swal.fire("Informasi", "Menggunakan data dummy TBP Desember 2025", "info");
+        } else {
+          Swal.fire("Gagal", "Data TBP tidak ditemukan di sistem maupun data dummy", "error");
+          setData(null);
+        }
         return;
       }
 
       const item = result.data;
-      const pejabat = JSON.parse(item.json_pejabat);
-      const jumlahBayar = Number(item.jumlah_bayar);
+      const pejabat = JSON.parse(item.json_pejabat || "{}");
+      const jumlahBayar = Number(item.jumlah_bayar || 0);
 
       setData({
         no_tbp: item.no_tbp,
         tanggal: formatDate(item.tanggal),
-        nama: item.wr.nama,
-        alamat: item.wr.alamat,
-        nik: item.wr.nik_npwp,
+        nama: item.wr?.nama || "-",
+        alamat: item.wr?.alamat || "-",
+        nik: item.wr?.nik_npwp || "-",
         jumlah: jumlahBayar.toLocaleString("id-ID"),
         terbilang: terbilang(jumlahBayar) + " Rupiah",
-        jenis_ret: item.obyek.sub_rekening.golongan.golongan,
-        keterangan: item.obyek.sub_rekening.jenis.jenis_retribusi,
+        jenis_ret: item.obyek?.sub_rekening?.golongan?.golongan || "-",
+        keterangan: item.obyek?.sub_rekening?.jenis?.jenis_retribusi || "-",
         no_skrd: item.no_penetapan,
-        obyek: item.obyek.obyek_retribusi,
-        lokasi: item.obyek.alamat,
-        nama_bendahara: pejabat.nama_bendahara,
-        nip: pejabat.nip_bendahara,
-        uppd: item.uppd.nama,
-        opd: item.opd.nama,
-        alamatuppd: item.opd.alamat,
+        obyek: item.obyek?.obyek_retribusi || "-",
+        lokasi: item.obyek?.alamat || "-",
+        nama_bendahara: pejabat.nama_bendahara || "-",
+        nip: pejabat.nip_bendahara || "-",
+        uppd: item.uppd?.nama || "-",
+        opd: item.opd?.nama || "-",
+        alamatuppd: item.opd?.alamat || "-",
       });
     } catch (err) {
-      Swal.fire(
-        "Error",
-        "Gagal mengambil data, pastikan koneksi server baik",
-        "error",
+      // Fallback ke dummy data jika offline atau terjadi error jaringan
+      const foundDummy = DUMMY_TBP_DEC_2025.find(
+        (item) => item.no_penetapan.toLowerCase() === skrd.trim().toLowerCase() ||
+                  item.no_tbp.toLowerCase() === skrd.trim().toLowerCase()
       );
+
+      if (foundDummy) {
+        setData({
+          no_tbp: foundDummy.no_tbp,
+          tanggal: formatDate(foundDummy.tanggal),
+          nama: foundDummy.nama,
+          alamat: foundDummy.alamat,
+          nik: foundDummy.nik,
+          jumlah: foundDummy.jumlah_bayar.toLocaleString("id-ID"),
+          terbilang: terbilang(foundDummy.jumlah_bayar) + " Rupiah",
+          jenis_ret: foundDummy.jenis_ret,
+          keterangan: foundDummy.keterangan,
+          no_skrd: foundDummy.no_penetapan,
+          obyek: foundDummy.obyek,
+          lokasi: foundDummy.lokasi,
+          nama_bendahara: foundDummy.nama_bendahara,
+          nip: foundDummy.nip,
+          uppd: foundDummy.uppd,
+          opd: foundDummy.opd,
+          alamatuppd: foundDummy.alamatuppd,
+        });
+        Swal.fire("Informasi", "Koneksi server gagal, menampilkan data dummy TBP Desember 2025", "info");
+      } else {
+        Swal.fire(
+          "Error",
+          "Gagal mengambil data, pastikan koneksi server baik",
+          "error",
+        );
+      }
     } finally {
       setLoadingSearch(false);
     }
   };
+
+  // Muat data dummy pertama secara otomatis (opsional, misalnya menampilkan data pertama)
+  useEffect(() => {
+    const defaultDummy = DUMMY_TBP_DEC_2025[0];
+    setSkrd(defaultDummy.no_penetapan);
+    setData({
+      no_tbp: defaultDummy.no_tbp,
+      tanggal: formatDate(defaultDummy.tanggal),
+      nama: defaultDummy.nama,
+      alamat: defaultDummy.alamat,
+      nik: defaultDummy.nik,
+      jumlah: defaultDummy.jumlah_bayar.toLocaleString("id-ID"),
+      terbilang: terbilang(defaultDummy.jumlah_bayar) + " Rupiah",
+      jenis_ret: defaultDummy.jenis_ret,
+      keterangan: defaultDummy.keterangan,
+      no_skrd: defaultDummy.no_penetapan,
+      obyek: defaultDummy.obyek,
+      lokasi: defaultDummy.lokasi,
+      nama_bendahara: defaultDummy.nama_bendahara,
+      nip: defaultDummy.nip,
+      uppd: defaultDummy.uppd,
+      opd: defaultDummy.opd,
+      alamatuppd: defaultDummy.alamatuppd,
+    });
+  }, []);
 
   useEffect(() => {
     let scanner = null;
@@ -204,7 +339,6 @@ export default function TransactionStatus() {
         {
           fps: 10,
           qrbox: { width: 300, height: 150 },
-          // Memastikan library mencari format Code 128
           formatsToSupport: [0, 6],
         },
         false,
@@ -212,27 +346,25 @@ export default function TransactionStatus() {
 
       scanner.render(
         (decodedText) => {
-          // Jika sudah scan, jangan lupa bersihkan
           setSkrd(decodedText);
           setShowScanner(false);
           scanner.clear().catch(console.error);
         },
-        (err) => {
-          // Abaikan error "NotFoundException", itu hanya artinya barcode belum tertangkap
-        },
+        (err) => {},
       );
     }
     return () => {
       if (scanner) scanner.clear().catch(console.error);
     };
   }, [showScanner]);
+
   return (
     <div className="min-h-screen flex flex-col pt-28 bg-slate-50">
       <Header />
       <main className="flex-1 p-4 md:p-8 max-w-4xl mx-auto w-full ">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8">
           <h2 className="font-bold text-slate-800 mb-4 uppercase">
-            Masukkan kode bayar
+            Masukkan kode bayar / No SKRD (Cth: SKRD/2025/12/001)
           </h2>
           <div className="flex gap-2">
             <input
@@ -241,17 +373,12 @@ export default function TransactionStatus() {
               value={skrd}
               onChange={(e) => setSkrd(e.target.value)}
             />
-            {/* <button
-              onClick={() => setShowScanner(true)}
-              className="bg-slate-700 text-white px-4 rounded"
-            >
-              <QrCode className="w-5 h-5" />
-            </button> */}
             <button
               onClick={handleSearch}
-              className="bg-blue-700 text-white px-6 py-2 rounded"
+              disabled={loadingSearch}
+              className="bg-blue-700 hover:bg-blue-800 text-white px-6 py-2 rounded flex items-center gap-1"
             >
-              <Search className="w-5 h-5 inline mr-1" /> Cari
+              <Search className="w-5 h-5 inline mr-1" /> {loadingSearch ? "Memuat..." : "Cari"}
             </button>
           </div>
         </div>
@@ -273,7 +400,6 @@ export default function TransactionStatus() {
         {data && (
           <div className="space-y-4">
             <div className="flex gap-3">
-              {/* Tombol Cetak */}
               <button
                 onClick={handlePrintAction}
                 className="bg-emerald-700 text-white px-6 py-2 rounded flex items-center gap-2 hover:bg-emerald-800"
@@ -281,7 +407,6 @@ export default function TransactionStatus() {
                 <Printer className="w-4 h-4" /> Cetak
               </button>
 
-              {/* Tombol Unduh PDF (Warna Merah) */}
               <button
                 onClick={handleDownloadPDF}
                 className="bg-red-600 text-white px-6 py-2 rounded flex items-center gap-2 hover:bg-red-700"
@@ -291,7 +416,7 @@ export default function TransactionStatus() {
             </div>
             <div
               ref={componentRef}
-              className="bg-white text-black mx-auto w-[210mm] min-h-[297mm] px-12 py-10 font-['Times_New_Roman'] text-[12px] leading-relaxed"
+              className="bg-white text-black mx-auto w-[210mm] min-h-[297mm] px-12 py-10 font-['Times_New_Roman'] text-[12px] leading-relaxed relative"
             >
               <div className="relative">
                 <img
