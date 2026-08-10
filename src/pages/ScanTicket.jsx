@@ -34,7 +34,7 @@ import Footer from "../components/Footer";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, getDocs, doc, updateDoc } from "firebase/firestore";
 
-// Import Library Ekspor PDF & Excel (Pastikan sudah di-install: npm install jspdf jspdf-autotable xlsx)
+// Import Library Ekspor PDF & Excel
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -447,7 +447,7 @@ export default function ScanTicket() {
   const totalPemasukan = filteredTickets.reduce((acc, curr) => acc + Number(curr.total || 0), 0);
   const totalPengunjung = filteredTickets.reduce((acc, curr) => acc + Number(curr.jumlahOrang || 1), 0);
 
-  // FUNGSI EKSPOR PDF
+  // FUNGSI EKSPOR PDF (DENGAN AMAN)
   const exportToPDF = () => {
     const doc = new jsPDF();
     doc.setFontSize(16);
@@ -472,13 +472,19 @@ export default function ScanTicket() {
       tableRows.push(ticketData);
     });
 
-    doc.autoTable({
-      head: [tableColumn],
-      body: tableRows,
-      startY: 40,
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [14, 116, 144] },
-    });
+    if (typeof doc.autoTable === "function") {
+      doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 40,
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [14, 116, 144] },
+      });
+    } else {
+      console.error("jsPDF autotable plugin tidak aktif.");
+      alert("Gagal memuat plugin tabel PDF. Pastikan modul jspdf-autotable terinstall dengan benar.");
+      return;
+    }
 
     doc.save(`Laporan_Tiket_${currentPetugas?.objekNama.replace(/\s+/g, "_")}.pdf`);
   };
@@ -495,7 +501,6 @@ export default function ScanTicket() {
       "Total Nominal (Rp)": t.total || 0,
     }));
 
-    // Tambahkan baris total
     excelData.push({
       No: "TOTAL",
       "No. Tiket / Kode": "",
