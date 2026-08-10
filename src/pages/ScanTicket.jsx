@@ -34,9 +34,9 @@ import Footer from "../components/Footer";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, getDocs, doc, updateDoc } from "firebase/firestore";
 
-// Import Library Ekspor PDF & Excel
+// Import Library Ekspor PDF & Excel (Gunakan cara impor plugin v5)
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 
 /* =========================================================================
@@ -188,7 +188,6 @@ async function validateAndUseFirebase(kode, currentPetugasObjekNama) {
       };
     }
 
-    // Jika valid dan sesuai, update status menjadi used di Firestore
     const userDocRef = doc(db, "users", targetUserDocId);
     let currentHistory = [];
     querySnapshot.forEach((d) => {
@@ -447,7 +446,7 @@ export default function ScanTicket() {
   const totalPemasukan = filteredTickets.reduce((acc, curr) => acc + Number(curr.total || 0), 0);
   const totalPengunjung = filteredTickets.reduce((acc, curr) => acc + Number(curr.jumlahOrang || 1), 0);
 
-  // FUNGSI EKSPOR PDF (DENGAN AMAN)
+  // FUNGSI EKSPOR PDF MENGGUNAKAN autoTable(doc, options)
   const exportToPDF = () => {
     const doc = new jsPDF();
     doc.setFontSize(16);
@@ -472,19 +471,14 @@ export default function ScanTicket() {
       tableRows.push(ticketData);
     });
 
-    if (typeof doc.autoTable === "function") {
-      doc.autoTable({
-        head: [tableColumn],
-        body: tableRows,
-        startY: 40,
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [14, 116, 144] },
-      });
-    } else {
-      console.error("jsPDF autotable plugin tidak aktif.");
-      alert("Gagal memuat plugin tabel PDF. Pastikan modul jspdf-autotable terinstall dengan benar.");
-      return;
-    }
+    // Pemanggilan autoTable v5 yang benar
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 40,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [14, 116, 144] },
+    });
 
     doc.save(`Laporan_Tiket_${currentPetugas?.objekNama.replace(/\s+/g, "_")}.pdf`);
   };
@@ -819,7 +813,6 @@ export default function ScanTicket() {
               <p className="text-xs text-slate-500">Rekapitulasi tiket masuk yang diambil langsung dari Firestore.</p>
             </div>
             
-            {/* KOTAK INFO TOTAL PENGUNJUNG & PEMASUKAN SESUAI FILTER */}
             <div className="flex gap-2">
               <div className="rounded-2xl bg-indigo-50 px-4 py-2 border border-indigo-100 text-right">
                 <span className="block text-[11px] font-semibold text-indigo-600 uppercase">Total Pengunjung</span>
@@ -859,7 +852,6 @@ export default function ScanTicket() {
             </div>
           </div>
 
-          {/* TOMBOL RESET FILTER & TOMBOL EKSPOR PDF / EXCEL */}
           <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div>
               {(filterTanggal !== "semua" || filterBulan !== "semua" || filterTahun !== "semua") && (
