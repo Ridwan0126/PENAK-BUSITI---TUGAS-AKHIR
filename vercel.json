@@ -1,0 +1,34 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/set-password",
+      "destination": "https://rpp.bapenda.jatengprov.go.id/penatausahaan/api/pepakraja/wr/set-password"
+    },
+    { "source": "/api/lupa-password", "destination": "/api/proxy-bapenda" },
+
+    {
+      "source": "/api-proxy/:path*",
+      "destination": "https://rpp.bapenda.jatengprov.go.id/penatausahaan/api/pepakraja/wr"
+    },
+    {
+      "source": "/api-reset/:path*",
+      "destination": "https://rpp.bapenda.jatengprov.go.id/penatausahaan/api/pepakraja/wr/:path*"
+    },
+    {
+      "source": "/bapenda/:path*",
+      "destination": "https://rpp.bapenda.jatengprov.go.id/penatausahaan/api/:path*"
+    },
+    {
+      "source": "/api/bapenda/(.*)",
+      "destination": "/api/bapenda"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

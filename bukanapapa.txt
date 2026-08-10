@@ -1,0 +1,53 @@
+{
+    "success": true,
+    "data": [
+        {
+            "id": "05.00.00.00.0.18938.02",
+            "id_opd": "05",
+            "id_uppd": "05.03",
+            "id_gen_obyek": 7412,
+            "obyek_retribusi": "LAHAN 1",
+            "status": 1,
+            "alamat": "HANOMAN RAYA",
+            "dasar_pengenaan": "Jangka Waktu Pemakaian",
+            "dasar_penetapan": "Perjanjian Kerjasama",
+            "id_kecamatan": 3374140,
+            "lat_long": null,
+            "foto": "https://rpp.bapenda.jatengprov.go.id/penatausahaan/images/obyek-FOTO DISPLAY FOOD TRUCK ALFAMART.jpg-9MZm.jpg",
+            "keterangan": "LAHAN 1",
+            "id_jenis_retribusi": "02.17",
+            "opd": {
+                "id": "05",
+                "nama": "BADAN PENGELOLA PENDAPATAN DAERAH"
+            },
+            "uppd": {
+                "id": "05.03",
+                "nama": "UPPD Kota Semarang III"
+            },
+            "kota": {
+                "id": 3374,
+                "kab_kota": "KOTA SEMARANG"
+            },
+            "kecamatan": {
+                "id": 3374140,
+                "kecamatan": "SEMARANG BARAT"
+            },
+            "tariftbl": {
+                "id_bapenda": 3232,
+                "tarif": "290000",
+                "penerimaan": "Retribusi Pemanfaatan Aset Daerah"
+            },
+            "jenis": {
+                "id": "02.17",
+                "jenis_retribusi": "Retribusi Pemanfaatan Aset Daerah"
+            },
+            "potensi_retribusi": {
+                "id_obyek": "05.00.00.00.0.18938.02",
+                "tarif": "290000",
+                "volume": "12",
+                "potensi": "3480000"
+            }
+        },
+    ],
+    "total_row": 75
+}
